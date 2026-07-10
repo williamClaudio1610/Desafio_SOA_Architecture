@@ -40,7 +40,7 @@ public class ContaValidador {
     public ContaResponseDTO validarContaExistePorNumero(String numeroConta) {
         try {
             ContaResponseDTO conta = restTemplate.getForObject(
-                    contaServiceUrl + "/buscar/numero/" + numeroConta,
+                    contaServiceUrl + "/numero/" + numeroConta,
                     ContaResponseDTO.class
             );
             if (conta == null) {
@@ -63,7 +63,7 @@ public class ContaValidador {
     }
 
     public void validarContaAtiva(ContaResponseDTO conta) {
-        if (!"ATIVA".equals(conta.getEstadoConta().toString())) {
+        if (!"ATIVA".equals(conta.getStatus())) {
             throw new RuntimeException("Conta " + conta.getNumeroConta() + " não está ativa");
         }
     }

@@ -49,9 +49,8 @@ public class ContaController {
         return ResponseEntity.ok(contaService.ativarConta(id));
     }
 
-    @PatchMapping("/{id}/atualizarSaldo")
-    public ResponseEntity<ContaResponseDTO> atualizarSaldo(
-            @RequestBody ContaAtualizarSaldoRequestDTO dto) {
+    @PatchMapping("/atualizarSaldo")
+    public ResponseEntity<ContaResponseDTO> atualizarSaldo(@RequestBody ContaAtualizarSaldoRequestDTO dto) {
         return ResponseEntity.ok(contaService.atualizarSaldo(dto));
     }
 

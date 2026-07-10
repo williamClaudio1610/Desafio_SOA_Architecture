@@ -1,6 +1,5 @@
 package com.orquestrador.service.SERVICE;
 
-
 import com.orquestrador.service.DTO.ContaComMovimentosDTO;
 import com.orquestrador.service.DTO.Requests.*;
 import com.orquestrador.service.DTO.Responses.*;
@@ -23,7 +22,6 @@ import java.util.stream.Collectors;
 @Service
 public class OrquestradorService implements IOrquestradorService {
 
-
     @Autowired private RestTemplate restTemplate;
     @Autowired private ContaValidador contaValidator;
     @Autowired private ClienteValidador clienteValidator;
@@ -33,7 +31,7 @@ public class OrquestradorService implements IOrquestradorService {
     @Value("${conta.service.url}") private String contaServiceUrl;
     @Value("${movimentos.service.url}") private String movimentosServiceUrl;
 
-// ─── CRIAR CLIENTE (+ CONTA + DEPÓSITO INICIAL) ────────────────────────
+    // ─── CRIAR CLIENTE (+ CONTA + DEPÓSITO INICIAL) ────────────────────────
 
     @Override
     public OnboardingResponseDTO criarCliente(OnboardingRequestDTO dto) {
@@ -48,7 +46,7 @@ public class OrquestradorService implements IOrquestradorService {
 
         ContaRequestDTO contaRequest = new ContaRequestDTO();
         contaRequest.setClienteId(clienteCriado.getId());
-        contaRequest.setTipoConta(dto.getTipoConta());
+        contaRequest.setTipoconta(dto.getTipoConta());
         contaRequest.setValor(dto.getDepositoInicial());
 
         ContaResponseDTO contaCriada = restTemplate.postForObject(
@@ -57,7 +55,7 @@ public class OrquestradorService implements IOrquestradorService {
         MovimentoRequestDTO movimentoRequest = new MovimentoRequestDTO();
         movimentoRequest.setTipoMovimento(TipoMovimento.DEPOSITO);
         movimentoRequest.setValor(dto.getDepositoInicial());
-        movimentoRequest.setContaOrigemId(contaCriada.getNumeroConta());
+        movimentoRequest.setContaOrigemId(String.valueOf(contaCriada.getId())); // id interno, não numeroConta
         movimentoRequest.setDescricao("Depósito inicial");
 
         restTemplate.postForObject(
@@ -73,23 +71,28 @@ public class OrquestradorService implements IOrquestradorService {
     }
 
     // ─── MOVIMENTOS ──────────────────────────────────────────────────────────
+    // contaOrigemId / contaDestinoId aqui são sempre o NÚMERO da conta (contrato público).
+    // A tradução para o id interno acontece em paraMovimentoInterno(), só na fronteira
+    // com o movimentos-service.
 
     @Override
     public MovimentoResponseDTO realizarMovimento(MovimentoRequestDTO dto) {
         return switch (dto.getTipoMovimento()) {
             case DEPOSITO -> depositar(dto);
             case LEVANTAMENTO -> levantar(dto);
-            case TRANSFERENCIA-> transferir(dto);
+            case TRANSFERENCIA -> transferir(dto);
         };
     }
 
     private MovimentoResponseDTO depositar(MovimentoRequestDTO dto) {
         movimentoValidator.validarSemContaDestino(dto);
-        ContaResponseDTO conta = contaValidator.validarContaExistePorId(dto.getContaOrigemId());
+        ContaResponseDTO conta = contaValidator.validarContaExistePorNumero(dto.getContaOrigemId());
         contaValidator.validarContaAtiva(conta);
 
         MovimentoResponseDTO movimento = restTemplate.postForObject(
-                movimentosServiceUrl + "/depositar", dto, MovimentoResponseDTO.class);
+                movimentosServiceUrl + "/depositar",
+                paraMovimentoInterno(dto, conta.getId(), null),
+                MovimentoResponseDTO.class);
 
         atualizarSaldoConta(conta.getNumeroConta(), dto.getValor());
         return movimento;
@@ -97,34 +100,50 @@ public class OrquestradorService implements IOrquestradorService {
 
     private MovimentoResponseDTO levantar(MovimentoRequestDTO dto) {
         movimentoValidator.validarSemContaDestino(dto);
-        ContaResponseDTO conta = contaValidator.validarContaExistePorId(dto.getContaOrigemId());
+        ContaResponseDTO conta = contaValidator.validarContaExistePorNumero(dto.getContaOrigemId());
         contaValidator.validarContaAtiva(conta);
         contaValidator.validarSaldoSuficiente(conta, dto.getValor());
 
         MovimentoResponseDTO movimento = restTemplate.postForObject(
-                movimentosServiceUrl + "/levantar", dto, MovimentoResponseDTO.class);
+                movimentosServiceUrl + "/levantar",
+                paraMovimentoInterno(dto, conta.getId(), null),
+                MovimentoResponseDTO.class);
 
-        atualizarSaldoConta(dto.getContaOrigemId(), dto.getValor().negate());
+        atualizarSaldoConta(conta.getNumeroConta(), dto.getValor().negate());
         return movimento;
     }
 
     private MovimentoResponseDTO transferir(MovimentoRequestDTO dto) {
         movimentoValidator.validarContaDestinoObrigatoria(dto);
 
-        ContaResponseDTO contaOrigem = contaValidator.validarContaExistePorId(dto.getContaOrigemId());
+        ContaResponseDTO contaOrigem = contaValidator.validarContaExistePorNumero(dto.getContaOrigemId());
         contaValidator.validarContaAtiva(contaOrigem);
         contaValidator.validarSaldoSuficiente(contaOrigem, dto.getValor());
 
-        ContaResponseDTO contaDestino = contaValidator.validarContaExistePorId(dto.getContaDestinoId());
+        ContaResponseDTO contaDestino = contaValidator.validarContaExistePorNumero(dto.getContaDestinoId());
         contaValidator.validarContaAtiva(contaDestino);
         contaValidator.validarContasDiferentes(dto.getContaOrigemId(), dto.getContaDestinoId());
 
         MovimentoResponseDTO movimento = restTemplate.postForObject(
-                movimentosServiceUrl + "/transferir", dto, MovimentoResponseDTO.class);
+                movimentosServiceUrl + "/transferir",
+                paraMovimentoInterno(dto, contaOrigem.getId(), contaDestino.getId()),
+                MovimentoResponseDTO.class);
 
         atualizarSaldoConta(contaOrigem.getNumeroConta(), dto.getValor().negate());
         atualizarSaldoConta(contaDestino.getNumeroConta(), dto.getValor());
         return movimento;
+    }
+
+    // Traduz o pedido público (identificado por numeroConta) para o formato que o
+    // movimentos-service espera (identificado pelo id numérico interno da conta).
+    private MovimentoRequestDTO paraMovimentoInterno(MovimentoRequestDTO original, Long contaOrigemId, Long contaDestinoId) {
+        MovimentoRequestDTO interno = new MovimentoRequestDTO();
+        interno.setTipoMovimento(original.getTipoMovimento());
+        interno.setValor(original.getValor());
+        interno.setDescricao(original.getDescricao());
+        interno.setContaOrigemId(String.valueOf(contaOrigemId));
+        interno.setContaDestinoId(contaDestinoId != null ? String.valueOf(contaDestinoId) : null);
+        return interno;
     }
 
     private void atualizarSaldoConta(String numeroConta, BigDecimal valor) {

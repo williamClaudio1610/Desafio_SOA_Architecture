@@ -12,14 +12,14 @@ public class ContaResponseDTO {
     private String numeroConta;
     private BigDecimal saldo;
     private Long clienteId;
-    private String estadoConta;
+    private String status;
 
-    public String getEstadoConta() {
-        return estadoConta;
+    public String getStatus() {
+        return status;
     }
 
-    public void setEstadoConta(String estadoConta) {
-        this.estadoConta = estadoConta;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public Long getId() {

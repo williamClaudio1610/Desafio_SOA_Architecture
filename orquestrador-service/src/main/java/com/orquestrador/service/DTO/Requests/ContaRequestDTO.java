@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 @Setter
 public class ContaRequestDTO {
     private Long clienteId;
-    private TipoConta tipoConta;
+    private TipoConta tipoconta;
     private BigDecimal valor;
 
     public Long getClienteId() {
@@ -21,12 +21,12 @@ public class ContaRequestDTO {
         this.clienteId = clienteId;
     }
 
-    public TipoConta getTipoConta() {
-        return tipoConta;
+    public TipoConta getTipoconta() {
+        return tipoconta;
     }
 
-    public void setTipoConta(TipoConta tipoConta) {
-        this.tipoConta = tipoConta;
+    public void setTipoconta(TipoConta tipoconta) {
+        this.tipoconta = tipoconta;
     }
 
     public BigDecimal getValor() {
