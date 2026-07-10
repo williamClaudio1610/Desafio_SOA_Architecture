@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: banco-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  cliente-service:
+    build: ./cliente-service
+    container_name: cliente-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cliente_db
+      SPRING_DATASOURCE_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  conta-service:
+    build: ./conta-service
+    container_name: conta-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/conta_db
+      SPRING_DATASOURCE_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  transferencia-service:
+    build: ./transferencia-service
+    container_name: transferencia-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/transferencia_db
+      SPRING_DATASOURCE_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  orquestrador-service:
+    build: ./orquestrador-service
+    container_name: orquestrador-service
+    ports:
+      - "8084:8084"
+    environment:
+      CLIENTE_SERVICE_URL: http://cliente-service:8081/api/clientes
+      CONTA_SERVICE_URL: http://conta-service:8082/api/contas
+      MOVIMENTOS_SERVICE_URL: http://transferencia-service:8083/api/movimentos
+    depends_on:
+      - cliente-service
+      - conta-service
+      - transferencia-service
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - cliente-service
+      - conta-service
+      - transferencia-service
+      - orquestrador-service
+
+volumes:
+  postgres_data:
