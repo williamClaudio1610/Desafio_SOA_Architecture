@@ -91,8 +91,11 @@ public class OrquestradorService implements IOrquestradorService {
 
         MovimentoResponseDTO movimento = restTemplate.postForObject(
                 movimentosServiceUrl + "/depositar",
-                paraMovimentoInterno(dto, conta.getId(), null),
+                paraMovimentoInterno(dto, null, conta.getId()), // depósito entra como conta DESTINO
                 MovimentoResponseDTO.class);
+
+        movimento.setContaOrigemId(null);
+        movimento.setContaDestinoId(conta.getNumeroConta());
 
         atualizarSaldoConta(conta.getNumeroConta(), dto.getValor());
         return movimento;
@@ -106,8 +109,11 @@ public class OrquestradorService implements IOrquestradorService {
 
         MovimentoResponseDTO movimento = restTemplate.postForObject(
                 movimentosServiceUrl + "/levantar",
-                paraMovimentoInterno(dto, conta.getId(), null),
+                paraMovimentoInterno(dto, conta.getId(), null), // levantamento sai da conta ORIGEM
                 MovimentoResponseDTO.class);
+
+        movimento.setContaOrigemId(conta.getNumeroConta());
+        movimento.setContaDestinoId(null);
 
         atualizarSaldoConta(conta.getNumeroConta(), dto.getValor().negate());
         return movimento;
@@ -128,6 +134,9 @@ public class OrquestradorService implements IOrquestradorService {
                 movimentosServiceUrl + "/transferir",
                 paraMovimentoInterno(dto, contaOrigem.getId(), contaDestino.getId()),
                 MovimentoResponseDTO.class);
+
+        movimento.setContaOrigemId(contaOrigem.getNumeroConta());
+        movimento.setContaDestinoId(contaDestino.getNumeroConta());
 
         atualizarSaldoConta(contaOrigem.getNumeroConta(), dto.getValor().negate());
         atualizarSaldoConta(contaDestino.getNumeroConta(), dto.getValor());

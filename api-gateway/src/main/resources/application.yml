@@ -1,0 +1,27 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: cliente-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/clientes/**
+            - id: conta-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/contas/**
+            - id: movimentos-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/api/movimentos/**
+            - id: orquestrador-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/orquestrador/**
