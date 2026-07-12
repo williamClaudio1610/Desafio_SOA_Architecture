@@ -79,5 +79,13 @@ services:
       - transferencia-service
       - orquestrador-service
 
+  bank_frontend:
+    build: ./bank_frontend
+    container_name: bank_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+
 volumes:
   postgres_data:
